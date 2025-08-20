@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Open‑Meteo Weather · Bootstrap App</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root{--glass-bg: rgba(255,255,255,0.06);--glass-brd: rgba(255,255,255,0.12)}
+    body{background: radial-gradient(1200px 600px at 10% 0%, #0f172a 0,#020617 50%, #000 100%);} 
+    .glass{background: var(--glass-bg); border: 1px solid var(--glass-brd); backdrop-filter: blur(8px);}
+    .shadow-soft{box-shadow: 0 10px 30px rgba(0,0,0,.35)}
+    .card{border-radius: 1.25rem}
+    .forecast-scroll{overflow-x: auto; white-space: nowrap}
+    .forecast-item{display:inline-block; min-width: 92px}
+    .bi{vertical-align: -0.2rem}
+    .clicky{cursor: pointer}
+    .spinner{width: 1rem; height: 1rem}
+    .badge-aqi{font-weight:600}
+    .search-suggest{position:absolute; z-index: 1000; left:0; right:0}
+    .search-suggest .list-group-item{background: #0b1020}
+    .sun-line{height:6px; background: linear-gradient(90deg,#f59e0b,#fde047); border-radius: 999px}
+    .footer-note{opacity:.65}
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg glass shadow-soft sticky-top">
+    <div class="container py-2">
+      <span class="navbar-brand fw-semibold d-flex align-items-center gap-2">
+        <i class="bi bi-cloud-sun-fill fs-4"></i> Open‑Meteo Weather
+      </span>
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <div class="form-check form-switch m-0" title="Toggle °C / °F">
+          <input class="form-check-input" type="checkbox" id="unitToggle">
+          <label class="form-check-label" for="unitToggle"><span id="unitLabel">°C</span></label>
+        </div>
+        <button class="btn btn-outline-light btn-sm" id="themeToggle" title="Toggle theme"><i class="bi bi-moon-stars"></i></button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container my-4">
+    <!-- Search & actions -->
+    <div class="row g-3 align-items-stretch">
+      <div class="col-12 col-lg-8">
+        <div class="position-relative">
+          <div class="input-group input-group-lg shadow-soft">
+            <span class="input-group-text glass"><i class="bi bi-geo-alt"></i></span>
+            <input id="searchInput" type="search" class="form-control glass" placeholder="Search city, region or country…" autocomplete="off"/>
+            <button id="searchBtn" class="btn btn-primary"><i class="bi bi-search"></i><span class="ms-2 d-none d-md-inline">Search</span></button>
+          </div>
+          <div id="suggestions" class="search-suggest d-none"></div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-4 d-grid d-lg-flex gap-2">
+        <button id="useLocation" class="btn btn-outline-primary btn-lg flex-fill"><i class="bi bi-crosshair2 me-2"></i>Use my location</button>
+        <button id="refreshBtn" class="btn btn-outline-light btn-lg flex-fill"><i class="bi bi-arrow-clockwise me-2"></i>Refresh</button>
+      </div>
+    </div>
+
+    <!-- Status / Alerts -->
+    <div id="status" class="my-3 d-none"></div>
+
+    <!-- Current weather card -->
+    <section id="currentSection" class="row g-4 mt-1">
+      <div class="col-12 col-xl-6">
+        <div class="card glass shadow-soft">
+          <div class="card-body">
+            <div class="d-flex justify-content-between flex-wrap gap-3">
+              <div>
+                <h2 class="h4 m-0" id="placeName">—</h2>
+                <div class="small text-secondary" id="placeMeta">—</div>
+                <div class="mt-3 d-flex align-items-center gap-3">
+                  <i id="currentIcon" class="bi bi-cloud fs-1"></i>
+                  <div>
+                    <div class="display-5 fw-bold" id="currentTemp">—</div>
+                    <div class="text-secondary" id="currentSummary">—</div>
+                  </div>
+                </div>
+              </div>
+              <div class="text-end">
+                <div class="badge rounded-pill text-bg-info" id="aqiBadge" title="Air Quality Index">AQI —</div>
+                <div class="mt-3 small">Updated <span id="updatedAt">—</span></div>
+              </div>
+            </div>
+            <hr/>
+            <div class="row row-cols-2 row-cols-md-4 g-3 text-center">
+              <div><div class="small text-secondary">Feels like</div><div id="feelsLike" class="fw-semibold">—</div></div>
+              <div><div class="small text-secondary">Humidity</div><div id="humidity" class="fw-semibold">—</div></div>
+              <div><div class="small text-secondary">Wind</div><div id="wind" class="fw-semibold">—</div></div>
+              <div><div class="small text-secondary">Precip. prob.</div><div id="precip" class="fw-semibold">—</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-6">
+        <div class="card glass shadow-soft h-100">
+          <div class="card-body">
+            <h3 class="h6 mb-3">Sunrise & Sunset</h3>
+            <div class="row g-3 align-items-center">
+              <div class="col-4 text-center">
+                <i class="bi bi-sunrise fs-2"></i>
+                <div class="fw-semibold" id="sunrise">—</div>
+              </div>
+              <div class="col-4">
+                <div class="sun-line"></div>
+              </div>
+              <div class="col-4 text-center">
+                <i class="bi bi-sunset fs-2"></i>
+                <div class="fw-semibold" id="sunset">—</div>
+              </div>
+            </div>
+            <div class="mt-3 small text-secondary">Timezone: <span id="tzLabel">—</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hourly forecast -->
+    <section class="mt-4">
+      <div class="card glass shadow-soft">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="h6 m-0">Next 24 hours</h3>
+            <div class="small text-secondary" id="hourlyNote">Local time</div>
+          </div>
+          <div id="hourlyScroll" class="forecast-scroll pb-2"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Daily forecast -->
+    <section class="mt-4">
+      <div class="card glass shadow-soft">
+        <div class="card-body">
+          <h3 class="h6 mb-3">7‑day outlook</h3>
+          <div class="row row-cols-2 row-cols-md-4 row-cols-xl-7 g-3" id="dailyGrid"></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="mt-4 footer-note">Data: Open‑Meteo (forecast), Open‑Meteo Geocoding, Open‑Meteo Air Quality. Built with Bootstrap 5 & Bootstrap Icons.</p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  // ===== Utilities =====
+  const $ = (sel, el=document) => el.querySelector(sel);
+  const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+  const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
+  const cToF = c => c*9/5+32; const msToKmh = ms=> ms*3.6; const msToMph = ms=> ms*2.23694;
+  const fmtTemp = (c, useF) => useF ? Math.round(cToF(c)) + '°F' : Math.round(c) + '°C';
+  const fmtWind = (ms, useF) => useF ? Math.round(msToMph(ms)) + ' mph' : Math.round(msToKmh(ms)) + ' km/h';
+  const fmtPct = n => (n==null||Number.isNaN(n)) ? '—' : Math.round(n) + '%';
+  const toLocal = (s) => new Date(s);
+
+  // WMO weather codes -> {label, icon}
+  const WMO = {
+    0:{t:'Clear sky', i:'bi-sun-fill'},
+    1:{t:'Mainly clear', i:'bi-sun'},
+    2:{t:'Partly cloudy', i:'bi-cloud-sun'},
+    3:{t:'Overcast', i:'bi-clouds'},
+    45:{t:'Fog', i:'bi-cloud-fog'}, 48:{t:'Rime fog', i:'bi-cloud-fog'},
+    51:{t:'Light drizzle', i:'bi-cloud-drizzle'}, 53:{t:'Drizzle', i:'bi-cloud-drizzle'}, 55:{t:'Heavy drizzle', i:'bi-cloud-drizzle-fill'},
+    56:{t:'Freezing drizzle', i:'bi-cloud-drizzle'}, 57:{t:'Heavy freezing drizzle', i:'bi-cloud-drizzle-fill'},
+    61:{t:'Light rain', i:'bi-cloud-rain'}, 63:{t:'Rain', i:'bi-cloud-rain'}, 65:{t:'Heavy rain', i:'bi-cloud-rain-heavy'},
+    66:{t:'Freezing rain', i:'bi-cloud-sleet'}, 67:{t:'Heavy freezing rain', i:'bi-cloud-sleet-fill'},
+    71:{t:'Light snow', i:'bi-cloud-snow'}, 73:{t:'Snow', i:'bi-cloud-snow'}, 75:{t:'Heavy snow', i:'bi-cloud-snow-fill'},
+    77:{t:'Snow grains', i:'bi-snow'},
+    80:{t:'Light rain showers', i:'bi-cloud-drizzle'}, 81:{t:'Rain showers', i:'bi-cloud-rain'}, 82:{t:'Violent rain showers', i:'bi-cloud-rain-heavy'},
+    85:{t:'Light snow showers', i:'bi-cloud-snow'}, 86:{t:'Snow showers', i:'bi-cloud-snow'},
+    95:{t:'Thunderstorm', i:'bi-cloud-lightning'}, 96:{t:'Thunderstorm with hail', i:'bi-cloud-hail'}, 99:{t:'Severe thunderstorm with hail', i:'bi-cloud-hail'}
+  };
+
+  // ===== State =====
+  const state = { useF: false, lastQuery: null, place: null, tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+  const unitToggle = $('#unitToggle'); const unitLabel = $('#unitLabel');
+  unitToggle.addEventListener('change', ()=>{ state.useF = unitToggle.checked; unitLabel.textContent = state.useF ? '°F' : '°C'; renderAll();});
+
+  // Theme toggle
+  $('#themeToggle').addEventListener('click', ()=>{
+    const html = document.documentElement; const dark = html.getAttribute('data-bs-theme')==='dark';
+    html.setAttribute('data-bs-theme', dark? 'light':'dark');
+  });
+
+  // ===== Search & Geocoding =====
+  const geocode = async (q) => {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=en&format=json`;
+    const r = await fetch(url); if(!r.ok) throw new Error('Geocoding failed');
+    return r.json();
+  };
+
+  const showSuggestions = (results) => {
+    const box = $('#suggestions'); box.innerHTML = '';
+    if(!results || !results.results || results.results.length===0){ box.classList.add('d-none'); return; }
+    const list = document.createElement('div'); list.className='list-group shadow-soft';
+    results.results.forEach((p)=>{
+      const item = document.createElement('button');
+      item.type='button'; item.className='list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+      const name = [p.name, p.admin1, p.country].filter(Boolean).join(', ');
+      item.innerHTML = `<span>${name}</span><span class="badge text-bg-dark">${p.latitude.toFixed(2)}, ${p.longitude.toFixed(2)}</span>`;
+      item.addEventListener('click', ()=>{ box.classList.add('d-none'); selectPlace(p); $('#searchInput').value = name; });
+      list.appendChild(item);
+    });
+    box.appendChild(list); box.classList.remove('d-none');
+  };
+
+  const selectPlace = async (p) => {
+    state.place = p; state.tz = p.timezone || state.tz; $('#tzLabel').textContent = state.tz || '—';
+    await loadForecast(p.latitude, p.longitude, state.tz);
+  };
+
+  // ===== Forecast Fetching =====
+  async function loadForecast(lat, lon, tz){
+    setStatus('Loading weather…');
+    try{
+      const params = new URLSearchParams({
+        latitude: lat, longitude: lon, current_weather: true,
+        hourly: ['temperature_2m','relativehumidity_2m','apparent_temperature','precipitation_probability','weathercode','windspeed_10m','winddirection_10m'].join(','),
+        daily: ['temperature_2m_max','temperature_2m_min','precipitation_probability_max','sunrise','sunset','weathercode'].join(','),
+        timezone: tz || 'auto'
+      });
+      const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+      const [wx, aq] = await Promise.all([
+        fetch(url).then(r=>r.json()),
+        fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi`).then(r=>r.json()).catch(()=>null)
+      ]);
+      state.lastQuery = {lat, lon, tz, wx, aq};
+      renderAll();
+      setStatus();
+    }catch(err){
+      console.error(err); setStatus('Could not load weather. Please try again.', 'danger');
+    }
+  }
+
+  function setStatus(msg, tone='info'){
+    const el = $('#status');
+    if(!msg){ el.classList.add('d-none'); el.innerHTML=''; return; }
+    el.className = `alert alert-${tone} glass`; el.textContent = msg; el.classList.remove('d-none');
+  }
+
+  // ===== Rendering =====
+  function renderAll(){ if(!state.lastQuery) return; renderCurrent(); renderHourly(); renderDaily(); }
+
+  function renderCurrent(){
+    const {wx, aq} = state.lastQuery; const cw = wx.current_weather || {}; const daily = wx.daily || {};
+    const name = state.place ? [state.place.name, state.place.admin1, state.place.country].filter(Boolean).join(', ') : '—';
+    $('#placeName').textContent = name;
+    $('#placeMeta').textContent = `Lat ${wx.latitude?.toFixed?.(2)}, Lon ${wx.longitude?.toFixed?.(2)}`;
+    const code = cw.weathercode ?? 0; const meta = WMO[code] || {t:'—', i:'bi-cloud'};
+    $('#currentIcon').className = `bi ${meta.i} fs-1`;
+    $('#currentSummary').textContent = meta.t;
+    $('#currentTemp').textContent = fmtTemp(cw.temperature ?? NaN, state.useF);
+    $('#feelsLike').textContent = wx.hourly?.apparent_temperature ? fmtTemp(wx.hourly.apparent_temperature[wx.hourly.time.indexOf(cw.time)] ?? cw.temperature, state.useF) : fmtTemp(cw.temperature ?? NaN, state.useF);
+    $('#humidity').textContent = wx.hourly?.relativehumidity_2m ? fmtPct(wx.hourly.relativehumidity_2m[wx.hourly.time.indexOf(cw.time)]) : '—';
+    $('#wind').textContent = cw.windspeed!=null ? `${fmtWind(cw.windspeed/3.6, state.useF)} ${degToArrow(cw.winddirection)}` : '—';
+
+    // Precip probability today (daily max)
+    const pprob = daily.precipitation_probability_max?.[0];
+    $('#precip').textContent = fmtPct(pprob);
+
+    // Sunrise/sunset
+    $('#sunrise').textContent = daily.sunrise ? timeOnly(daily.sunrise[0]) : '—';
+    $('#sunset').textContent  = daily.sunset  ? timeOnly(daily.sunset[0])  : '—';
+
+    // Updated time & timezone
+    $('#updatedAt').textContent = cw.time ? new Date(cw.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
+    $('#tzLabel').textContent = wx.timezone || state.tz || '—';
+
+    // AQI latest
+    if(aq && aq.hourly && aq.hourly.us_aqi){
+      const last = aq.hourly.us_aqi[aq.hourly.us_aqi.length-1];
+      const {label, cls} = aqiLabel(last);
+      const aqi = $('#aqiBadge'); aqi.textContent = `AQI ${last} · ${label}`; aqi.className = `badge rounded-pill ${cls}`;
+    } else { $('#aqiBadge').textContent = 'AQI —'; $('#aqiBadge').className = 'badge rounded-pill text-bg-secondary'; }
+  }
+
+  function renderHourly(){
+    const {wx} = state.lastQuery; const H = wx.hourly || {}; if(!H.time){ $('#hourlyScroll').innerHTML=''; return; }
+    const now = new Date(); const items = [];
+    for(let i=0;i<H.time.length && items.length<24;i++){
+      const t = new Date(H.time[i]); if(t < now) continue; // future from now
+      const code = H.weathercode?.[i] ?? 0; const meta = WMO[code] || {t:'—', i:'bi-cloud'};
+      const temp = H.temperature_2m?.[i]; const pop = H.precipitation_probability?.[i];
+      items.push(`<div class="forecast-item text-center p-3 glass rounded-4 me-2">
+        <div class="small text-secondary">${t.toLocaleTimeString([], {hour:'2-digit'})}</div>
+        <i class="bi ${meta.i} fs-4 my-1"></i>
+        <div class="fw-semibold">${fmtTemp(temp, state.useF)}</div>
+        <div class="small text-secondary">${fmtPct(pop)}</div>
+      </div>`);
+    }
+    $('#hourlyScroll').innerHTML = items.join('');
+  }
+
+  function renderDaily(){
+    const {wx} = state.lastQuery; const D = wx.daily || {}; if(!D.time){ $('#dailyGrid').innerHTML=''; return; }
+    const days = D.time.map((s,idx)=>{
+      const d = new Date(s);
+      const code = D.weathercode?.[idx] ?? 0; const meta = WMO[code] || {t:'—', i:'bi-cloud'};
+      const max = D.temperature_2m_max?.[idx]; const min = D.temperature_2m_min?.[idx];
+      const pop = D.precipitation_probability_max?.[idx];
+      return `<div class="col"> 
+        <div class="p-3 glass rounded-4 h-100 text-center">
+          <div class="small text-secondary">${d.toLocaleDateString([], {weekday:'short'})}</div>
+          <i class="bi ${meta.i} fs-4 my-1" title="${meta.t}"></i>
+          <div class="fw-bold">${fmtTemp(max, state.useF)}</div>
+          <div class="text-secondary">${fmtTemp(min, state.useF)}</div>
+          <div class="small text-secondary">${fmtPct(pop)}</div>
+        </div>
+      </div>`;
+    }).join('');
+    $('#dailyGrid').innerHTML = days;
+  }
+
+  function timeOnly(s){ const d = new Date(s); return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+  function degToArrow(deg){ if(deg==null) return ''; const dirs = ['N','NE','E','SE','S','SW','W','NW']; const idx = Math.round(deg/45)%8; return dirs[idx]; }
+
+  function aqiLabel(v){
+    if(v==null) return {label:'—', cls:'text-bg-secondary'};
+    if(v<=50) return {label:'Good', cls:'text-bg-success'};
+    if(v<=100) return {label:'Moderate', cls:'text-bg-info'};
+    if(v<=150) return {label:'Unhealthy (SG)', cls:'text-bg-warning'};
+    if(v<=200) return {label:'Unhealthy', cls:'text-bg-danger'};
+    if(v<=300) return {label:'Very Unhealthy', cls:'text-bg-danger'};
+    return {label:'Hazardous', cls:'text-bg-dark'};
+  }
+
+  // ===== Events =====
+  const input = $('#searchInput');
+  input.addEventListener('input', async (e)=>{
+    const q = input.value.trim(); if(q.length<2){ $('#suggestions').classList.add('d-none'); return; }
+    try{ const res = await geocode(q); showSuggestions(res); } catch(err){ console.error(err); }
+  });
+  $('#searchBtn').addEventListener('click', async ()=>{ const q = input.value.trim(); if(q) { const res = await geocode(q); if(res.results?.[0]) selectPlace(res.results[0]); }});
+  input.addEventListener('keydown', async (e)=>{ if(e.key==='Enter'){ e.preventDefault(); $('#searchBtn').click(); }});
+
+  $('#useLocation').addEventListener('click', ()=>{
+    if(!navigator.geolocation) { setStatus('Geolocation not supported by your browser.', 'warning'); return; }
+    setStatus('Getting your location…');
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+      const {latitude:lat, longitude:lon} = pos.coords;
+      // Reverse geocode for a nice name
+      const rev = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=en`).then(r=>r.json()).catch(()=>null);
+      const p = rev?.results?.[0] || {name:'Your location', latitude:lat, longitude:lon};
+      selectPlace(p);
+      setStatus();
+    }, (err)=>{
+      console.warn(err); setStatus('Permission denied or unavailable location.', 'warning');
+    }, {enableHighAccuracy:true, timeout:10000, maximumAge:0});
+  });
+
+  $('#refreshBtn').addEventListener('click', ()=>{ if(state.lastQuery){ loadForecast(state.lastQuery.lat, state.lastQuery.lon, state.lastQuery.tz); }});
+
+  // ===== Initial load: try geolocation, else a default city =====
+  (async function init(){
+    try{
+      // Try quick geolocation silently (may still prompt)
+      navigator.geolocation?.getCurrentPosition(async (pos)=>{
+        const {latitude:lat, longitude:lon} = pos.coords; const rev = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=en`).then(r=>r.json()).catch(()=>null);
+        const p = rev?.results?.[0] || {name:'Your location', latitude:lat, longitude:lon}; selectPlace(p);
+      }, async ()=>{
+        // Fallback: New Delhi
+        const res = await geocode('New Delhi'); if(res.results?.[0]) selectPlace(res.results[0]);
+      }, {timeout:6000});
+    }catch{ /* noop */ }
+  })();
+  </script>
+</body>
+</html>
