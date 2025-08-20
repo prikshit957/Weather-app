@@ -36,7 +36,8 @@ That's it! ✅
 ## 🖼️ Preview
 
 <p align="center">
-  <img src="https://github.com/your-username/open-meteo-weather/assets/preview.png" alt="App Preview" width="600" />
+  <img src="https://github.com/prikshit957/Weather-app
+/weather_app_preview.png" alt="App Preview" width="600" />
 </p>
 
 ---
